@@ -278,15 +278,14 @@ class ConferenceApi(remote.Service):
         Conference(**data).put()
         taskqueue.add(params={'email': user.email(),
             'conferenceInfo': repr(request)},
-            url='/tasks/send_confirmation_email'
-            )
+            url='/tasks/send_confirmation_email')
         return request
 
 
     @endpoints.method(ConferenceForm, ConferenceForm, path='conference', http_method='POST', name='createConference')
     def createConference(self, request):
         """Create new conference."""
-                return self._createConferenceObject(request)
+        return self._createConferenceObject(request)
 
 
     @ndb.transactional()
