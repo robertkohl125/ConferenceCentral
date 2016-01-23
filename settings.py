@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 """settings.py
 
 Udacity conference server-side Python App Engine app user settings

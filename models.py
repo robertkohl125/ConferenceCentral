@@ -1,5 +1,3 @@
-#!/usr/bin/env python
-
 """models.py
 
 Udacity conference server-side Python App Engine data & ProtoRPC models
@@ -25,6 +23,19 @@ class Profile(ndb.Model):
     displayName = ndb.StringProperty()
     mainEmail = ndb.StringProperty()
     teeShirtSize = ndb.StringProperty(default='NOT_SPECIFIED')
+    conferenceKeysToAttend = ndb.StringProperty(repeated=True)
+
+
+# needed for conference registration
+class BooleanMessage(messages.Message):
+    """BooleanMessage-- outbound Boolean value message"""
+    data = messages.BooleanField(1)
+
+
+# needed for conference registration
+class ConflictException(endpoints.ServiceException):
+    """ConflictException -- exception mapped to HTTP 409 response"""
+    http_status = httplib.CONFLICT
 
 
 class ProfileMiniForm(messages.Message):
@@ -72,6 +83,7 @@ class Conference(ndb.Model):
     maxAttendees    = ndb.IntegerProperty()
     seatsAvailable  = ndb.IntegerProperty()
 
+
 class ConferenceForm(messages.Message):
     """ConferenceForm -- Conference outbound form message"""
     name            = messages.StringField(1)
@@ -86,3 +98,26 @@ class ConferenceForm(messages.Message):
     endDate         = messages.StringField(10)
     websafeKey      = messages.StringField(11)
     organizerDisplayName = messages.StringField(12)
+
+
+class ConferenceForms(messages.Message):
+    """ConferenceForms -- multiple Conference outbound form message"""
+    items = messages.MessageField(ConferenceForm, 1, repeated=True)
+
+
+class ConferenceQueryForm(messages.Message):
+    """ConferenceQueryForm -- Conference query inbound form message"""
+    field = messages.StringField(1)
+    operator = messages.StringField(2)
+    value = messages.StringField(3)
+
+
+class ConferenceQueryForms(messages.Message):
+    """ConferenceQueryForms -- multiple ConferenceQueryForm inbound form message"""
+    filters = messages.MessageField(ConferenceQueryForm, 1, repeated=True)
+
+
+#Called by the getAnnouncement endpoint
+class StringMessage(messages.Message):
+    """StringMessage-- outbound (single) string message"""
+    data = messages.StringField(1, required=True)
