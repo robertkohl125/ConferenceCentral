@@ -53,3 +53,7 @@ libraries:
 - name: pycrypto
   version: latest
 
+builtins:
+
+# Enables Google AppStats
+- appstats: on
