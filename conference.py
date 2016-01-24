@@ -367,14 +367,15 @@ class ConferenceApi(remote.Service):
         user = endpoints.get_current_user()
         if not user:
             raise endpoints.UnauthorizedException('Authorization required')
-        p_key = ndb.Key(Profile, getUserId(user))    
-        conferences = Conference.query(ancestor=ndb.Key(Profile, p_key))
+        user_id = getUserId(user)
+        p_key = ndb.Key(Profile, user_id)    
+        conferences = Conference.query(ancestor=ndb.Key(Profile, user_id))
         prof = p_key.get()
         displayName = getattr(prof, 'displayName')
          # return individual ConferenceForm object per Conference
         return ConferenceForms(
             items=[self._copyConferenceToForm(conf, displayName) for conf in conferences]
-        )
+            )
 
 
     @endpoints.method(message_types.VoidMessage, ConferenceForms, path='conferences/attending', http_method='GET', name='getConferencesToAttend')
@@ -384,7 +385,7 @@ class ConferenceApi(remote.Service):
         profile = self._getProfileFromUser() 
 
         # create websafe key
-        conf_keys = [ndb.Key(urlsafe=wsck) for wsck in prof.conferenceKeysToAttend]
+        conf_keys = [ndb.Key(urlsafe=wsck) for wsck in profile.conferenceKeysToAttend]
 
         # get multiple conference keys
         conferences = ndb.get_multi(conf_keys)
@@ -395,8 +396,8 @@ class ConferenceApi(remote.Service):
 
         # put display names in a dict for easier fetching
         names = {}
-        for profile in profiles:
-            names[profile.key.id()] = profile.displayName
+        for prof in profiles:
+            names[prof.key.id()] = prof.displayName
 
         # return set of ConferenceForm objects per Conference
         return ConferenceForms(items=[self._copyConferenceToForm(conf, names[conf.organizerUserId]) for conf in conferences])
