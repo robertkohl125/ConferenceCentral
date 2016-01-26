@@ -24,7 +24,22 @@ class SendConfirmationEmailHandler(webapp2.RequestHandler):
             )
 
 
+class SendConfirmationEmailHandler2(webapp2.RequestHandler):
+    def post(self):
+        """Send email confirming Session creation."""
+        mail.send_mail(
+            'noreply@%s.appspotmail.com' % (
+                app_identity.get_application_id()),     # from
+            self.request.get('email'),                  # to
+            'You created a new Session!',               # subj
+            'Hi, you have created a following '         # body
+            'session:\r\n\r\n%s' % self.request.get(
+                'sessionInfo')
+            )
+
+
 app = webapp2.WSGIApplication([
 	('/crons/set_announcement', SetAnnouncementHandler),
     ('/tasks/send_confirmation_email', SendConfirmationEmailHandler),
+    ('/tasks/send_confirmation_email2', SendConfirmationEmailHandler2),
     ], debug=True)
