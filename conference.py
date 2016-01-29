@@ -69,8 +69,7 @@ SESS_GET_REQUEST_TOS = endpoints.ResourceContainer(
 
 SESS_GET_REQUEST_SPKR = endpoints.ResourceContainer(
     message_types.VoidMessage,
-    websafeConferenceKey=messages.StringField(1, required=True),
-    speaker=messages.StringField(2)
+    speaker=messages.StringField(1)
     )
 
 SESS_POST_REQUEST = endpoints.ResourceContainer(
@@ -589,23 +588,15 @@ class ConferenceApi(remote.Service):
 
 
     # Given a speaker, return all sessions given by this particular speaker, across all conferences
-    @endpoints.method(SESS_GET_REQUEST_SPKR, SessionForms, path='{websafeConferenceKey}/speaker', http_method='GET', name='getSessionsBySpeaker')
+    @endpoints.method(SESS_GET_REQUEST_SPKR, SessionForms, path='speaker', http_method='GET', name='getSessionsBySpeaker')
     def getSessionsBySpeaker(self, request): 
-        """Checks for authed user, valid conference, then returns sessions by speaker."""
+        """Checks for authed user, valid conference, then returns sessions by speaker, across all conferences."""
 
         # make sure user is authed
         user = endpoints.get_current_user()
         if not user:
             raise endpoints.UnauthorizedException('Authorization required')
         user_id = getUserId(user)
-
-        # Fetch websafeConferenceKey from request 
-        conf = ndb.Key(urlsafe=request.websafeConferenceKey).get()
-
-        # Check that conference exists
-        if not conf:
-            raise endpoints.NotFoundException(
-                'No conference found with key: %s' % request.websafeConferenceKey)
 
         # Fetch conference data by copying SessionForm/ProtoRPC Message into dict
         data = {field.name: getattr(request, field.name) for field in request.all_fields()}
