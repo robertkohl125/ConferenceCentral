@@ -1,15 +1,15 @@
 App Engine application for the Udacity training course.
 
-## Products
+#### Products
 - [App Engine][1]
 
-## Language
+#### Language
 - [Python][2]
 
-## APIs
+#### APIs
 - [Google Cloud Endpoints][3]
 
-## Setup Instructions
+#### Setup Instructions
 1. Update the value of `application` in `app.yaml` to the app ID you
    have registered in the App Engine admin console and would like to use to host
    your instance of this sample.
