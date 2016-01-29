@@ -91,11 +91,11 @@ class ConferenceForm(messages.Message):
     organizerUserId = messages.StringField(3)
     topics          = messages.StringField(4, repeated=True)
     city            = messages.StringField(5)
-    startDate       = messages.StringField(6)
+    startDate       = messages.StringField(6) #DateTimeField()
     month           = messages.IntegerField(7, variant=messages.Variant.INT32)
     maxAttendees    = messages.IntegerField(8, variant=messages.Variant.INT32)
     seatsAvailable  = messages.IntegerField(9, variant=messages.Variant.INT32)
-    endDate         = messages.StringField(10)
+    endDate         = messages.StringField(10) #DateTimeField()
     websafeKey      = messages.StringField(11)
     organizerDisplayName = messages.StringField(12)
 
@@ -133,21 +133,23 @@ class Session(ndb.Model):
     typeOfSession       = ndb.StringProperty(repeated=True)
     date                = ndb.DateProperty()
     location            = ndb.StringProperty()
-    websafeConferenceKey = ndb.StringProperty()
+    organizerDispName   = ndb.StringProperty()
     organizerUserId     = ndb.StringProperty()
+
 
 class SessionForm(messages.Message):
     """SessionForm -- Conference outbound form message"""
     name                = messages.StringField(1)
     highlights          = messages.StringField(2)
     speaker             = messages.StringField(3)
-    startTime           = messages.StringField(4)
+    startTime           = messages.StringField(4) #TimeField() in 24 hour notation so it can be ordered
     duration            = messages.StringField(5)
     typeOfSession       = messages.StringField(6, repeated=True)
     date                = messages.StringField(7)
-    websafeSessionKey   = messages.StringField(8)
-    organizerDispName   = messages.StringField(9)
-    websafeConferenceKey = messages.StringField(10)
+    location            = messages.StringField(8)
+#    websafeSessionKey   = messages.StringField(8)
+    websafeConferenceKey          = messages.StringField(9)
+    organizerDispName   = messages.StringField(10)
 
 
 class SessionForms(messages.Message):
