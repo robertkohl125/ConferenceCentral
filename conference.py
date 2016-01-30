@@ -69,10 +69,15 @@ SESS_GET_REQUEST_TOS = endpoints.ResourceContainer(
 
 SESS_GET_REQUEST_SPKR = endpoints.ResourceContainer(
     message_types.VoidMessage,
-    speaker=messages.StringField(1)
+    speaker=messages.StringField(1, required=True)
     )
 
 SESS_POST_REQUEST = endpoints.ResourceContainer(
+    SessionForm,
+    websafeConferenceKey=messages.StringField(1, required=True)
+    )
+
+WISHLIST_POST_REQUEST = endpoints.ResourceContainer(
     SessionForm,
     websafeConferenceKey=messages.StringField(1, required=True)
     )
@@ -439,6 +444,10 @@ class ConferenceApi(remote.Service):
 
 # - - - Sessions - - - - - - - - - - - - - - - - - - - -
     
+#  ------------
+#  |  TASK 1  |
+#  ------------
+
     def _copySessionToForm(self, session):
         """Copy relevant fields from Session to SessionForm."""
         sf = SessionForm()
@@ -454,6 +463,9 @@ class ConferenceApi(remote.Service):
         sf.check_initialized()
         return sf
 
+#  ------------
+#  |  TASK 1  |
+#  ------------
 
     def _createSessionObject(self, request):
         """Create or update Session object, returning SessionForm/request."""
@@ -514,6 +526,9 @@ class ConferenceApi(remote.Service):
         #return (modified) SessionForm
         return request
 
+#  ------------
+#  |  TASK 1  |
+#  ------------
 
     # Open only to the organizer of the conference
     @endpoints.method(SessionForm, SessionForm, path='session', http_method='POST', name='createSession')
@@ -555,6 +570,9 @@ class ConferenceApi(remote.Service):
         # Return set of SessionForm objects per ancestor
         return SessionForms(items=[self._copySessionToForm(sessions) for sessions in s])
 
+#  ------------
+#  |  TASK 1  |
+#  ------------
 
     # Given a conference, return all sessions of a specified type (eg lecture, keynote, workshop)
     @endpoints.method(SESS_GET_REQUEST_TOS, SessionForms, path='session/{websafeConferenceKey}/typeOfSession', http_method='GET', name='getConferenceSessionsByType')
@@ -586,6 +604,9 @@ class ConferenceApi(remote.Service):
         # Return set of SessionForm objects per typeOfSession
         return SessionForms(items=[self._copySessionToForm(sessions) for sessions in s])
 
+#  ------------
+#  |  TASK 1  |
+#  ------------
 
     # Given a speaker, return all sessions given by this particular speaker, across all conferences
     @endpoints.method(SESS_GET_REQUEST_SPKR, SessionForms, path='speaker', http_method='GET', name='getSessionsBySpeaker')
@@ -608,6 +629,54 @@ class ConferenceApi(remote.Service):
 
         # Return set of SessionForm objects per speaker
         return SessionForms(items=[self._copySessionToForm(sessions) for sessions in s])
+
+#  ------------
+#  |  TASK 2  |
+#  ------------
+    @endpoints.method(WISHLIST_POST_REQUEST, SessionForm,
+            http_method='POST', name='addSessionToWishlist')
+    def addSessionToWishlist(SessionKey):
+        """Checks for authed user, adds the session to the user's list of sessions they are interested in attending."""
+
+        # make sure user is authed
+        user = endpoints.get_current_user()
+        if not user:
+            raise endpoints.UnauthorizedException('Authorization required')
+        user_id = getUserId(user)
+
+
+#  ------------
+#  |  TASK 2  |
+#  ------------
+    @endpoints.method(WISHLIST_POST_REQUEST, SessionForm,
+            http_method='GET', name='getSessionsInWishlist')
+    def getSessionsInWishlist():
+        """Checks for authed user, query for all the sessions in a conference that the user is interested in, open to all conferences."""
+
+        # make sure user is authed
+        user = endpoints.get_current_user()
+        if not user:
+            raise endpoints.UnauthorizedException('Authorization required')
+        user_id = getUserId(user)
+
+
+#  ------------
+#  |  TASK 2  |
+#  ------------
+
+    @endpoints.method(WISHLIST_POST_REQUEST, SessionForm,
+            http_method='DELETE', name='deleteSessionInWishlist')
+    def deleteSessionInWishlist(SessionKey):
+        """Checks for authed user, removes the session from the user’s list of sessions they are interested in attending."""
+
+        # make sure user is authed
+        user = endpoints.get_current_user()
+        if not user:
+            raise endpoints.UnauthorizedException('Authorization required')
+        user_id = getUserId(user)
+
+
+
 
 # - - - Registration - - - - - - - - - - - - - - - - - - - -
 

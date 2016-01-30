@@ -4,6 +4,7 @@ The following methods were added to conference.py to perform Session methods inc
 ##### Private methods:
 1. _copySessionToForm(self, session)
 1. _createSessionObject(self, request)
+
 ##### Endpoints:
 2. createSession(self, request)
 2. getConferenceSessions(self, request)
