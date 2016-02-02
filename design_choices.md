@@ -11,6 +11,8 @@ The following methods were added to conference.py to perform Session methods inc
 2. getConferenceSessionsByType(self, request)
 2. getSessionsBySpeaker(self, request)
 
+I currently have the _createSessionObject limited to logged in users rather than the createSession endpoint.
+
 One interesting choice I made was to define an independent ResourceContainer for each Session HTML GET request. I did this for simplicity to 
 ##### Session HTML GET request ResourceContainers:
 1. SESS_GET_REQUEST
