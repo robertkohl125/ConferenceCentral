@@ -2,13 +2,9 @@
 """
 conference.py -- Udacity conference server-side Python App Engine API;
     uses Google Cloud Endpoints
-
 $Id: conference.py,v 1.25 2014/05/24 23:42:19 wesc Exp wesc $
-
 created by wesc on 2014 apr 21
-
 """
-
 __author__ = 'wesc+api@google.com (Wesley Chun)'
 
 
@@ -79,9 +75,14 @@ SESS_POST_REQUEST = endpoints.ResourceContainer(
     websafeConferenceKey=messages.StringField(1, required=True)
     )
 
+WISHLIST_GET_REQUEST = endpoints.ResourceContainer(
+    message_types.VoidMessage,
+    websafeSessionKey=messages.StringField(1),
+    )
+
 WISHLIST_POST_REQUEST = endpoints.ResourceContainer(
     WishlistForm,
-    websafeSessionKey=messages.StringField(1, required=True)
+    websafeSessionKey=messages.StringField(1)
     )
 
 DEFAULTS = {
@@ -114,14 +115,9 @@ SESSION_TYPES = {
     'WORKSHOP': 'workshop',
     }
 
+# - - - Main Class and Endpoint defined - - - - - - - - - - - - - - - - - - - - - - - - - - -
 
-
-# - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-
-@endpoints.api( name='conference',
-                version='v1',
-                allowed_client_ids=[WEB_CLIENT_ID, API_EXPLORER_CLIENT_ID],
-                scopes=[EMAIL_SCOPE])
+@endpoints.api( name='conference', version='v1', allowed_client_ids=[WEB_CLIENT_ID, API_EXPLORER_CLIENT_ID], scopes=[EMAIL_SCOPE])
 class ConferenceApi(remote.Service):
     """Conference API v0.2"""
 
@@ -159,7 +155,7 @@ class ConferenceApi(remote.Service):
                 key = p_key,
                 displayName = user.nickname(), 
                 mainEmail= user.email(),
-                teeShirtSize = str(TeeShirtSize.NOT_SPECIFIED),
+                teeShirtSize = str(TeeShirtSize.NOT_SPECIFIED)
             )
             profile.put()
 
@@ -374,9 +370,7 @@ class ConferenceApi(remote.Service):
         return self._copyConferenceToForm(conf, getattr(prof, 'displayName'))
 
 
-    @endpoints.method(CONF_POST_REQUEST, ConferenceForm,
-            path='conference/{websafeConferenceKey}',
-            http_method='PUT', name='updateConference')
+    @endpoints.method(CONF_POST_REQUEST, ConferenceForm, path='conference/{websafeConferenceKey}', http_method='PUT', name='updateConference')
     def updateConference(self, request):
         """Update conference w/provided fields & return w/updated info."""
         return self._updateConferenceObject(request)
@@ -392,9 +386,7 @@ class ConferenceApi(remote.Service):
             items=[self._copyConferenceToForm(conf, "") for conf in conferences])
 
 
-    @endpoints.method(CONF_GET_REQUEST, ConferenceForm,
-            path='conference/{websafeConferenceKey}',
-            http_method='GET', name='getConference')
+    @endpoints.method(CONF_GET_REQUEST, ConferenceForm, path='conference/{websafeConferenceKey}', http_method='GET', name='getConference')
     def getConference(self, request):
         """Return requested conference (by websafeConferenceKey)."""
         # get Conference object from request; bail if not found
@@ -596,9 +588,7 @@ class ConferenceApi(remote.Service):
 #  |  TASK 1  |
 #  ------------
     # Given a conference, return all sessions
-    @endpoints.method(SESS_GET_REQUEST, SessionForms,
-            path='conference/{websafeConferenceKey}/sessions',
-            http_method='GET', name='getConferenceSessions')
+    @endpoints.method(SESS_GET_REQUEST, SessionForms, path='conference/{websafeConferenceKey}/sessions', http_method='GET', name='getConferenceSessions')
     def getConferenceSessions(self, request): 
         """Return requested conference sessions (by websafeConferenceKey)."""
 
@@ -685,53 +675,50 @@ class ConferenceApi(remote.Service):
 
 # - - - Wishlist - - - - - - - - - - - - - - - - - - - -
 
-#  ------------
-#  |  TASK 2  |
-#  ------------
-    @ndb.transactional()
-    def _updateProfileObject(self, request):
-        user = endpoints.get_current_user()
-        if not user:
-            raise endpoints.UnauthorizedException('Authorization required')
-        user_id = getUserId(user)
+    @ndb.transactional(xg=True)
+    def _sessionWishlist(self, request, addTo=True):
+        """Add or remove session from users wishlist."""
+        retval = None
 
-        # copy ConferenceForm/ProtoRPC Message into dict
-        data = {field.name: getattr(request, field.name) for field in request.all_fields()}
-
-        # update existing conference
+        # Fetch user profile
         prof = self._getProfileFromUser()
 
-        # Not getting all the fields, so don't create a new object; just
-        # copy relevant fields from ConferenceForm to Conference object
-        for field in request.all_fields():
-            data = getattr(request, field.name)
-            # only copy fields where we get data
-            if data not in (None, []):
-                # write to Profile object
-                setattr(prof, field.name, data)
+        # Fetch session from websafeSessionKey and check if exists
+        wsck = request.websafeSessionKey
+        sess = ndb.Key(urlsafe=wsck).get()
+        if not sess:
+            raise endpoints.NotFoundException(
+                'No session found with key: %s' % wsck)
+
+        # Check if session is already in wishlist otherwise add
+        if addTo:
+            if wsck in prof.wishlistSessionKeys:
+                raise ConflictException("You have already added this session to your wishlist")
+            prof.wishlistSessionKeys.append(wsck)
+            retval = True
+
+        # Check if session is in wishlist then remove
+        else:
+            if wsck in prof.wishlistSessionKeys:
+                prof.wishlistSessionKeys.remove(wsck)
+                retval = True
+            else:
+                retval = False
+
+        # Put back in datastore and return
         prof.put()
-        return self._copyProfileToForm(prof, getattr(prof, 'displayName'))
+        return BooleanMessage(data=retval)
 
 
-#  ------------
-#  |  TASK 2  |
-#  ------------
-    #Takes input from ProfileMiniForm and passes it as 'request' to _updateProfileObject
-    @endpoints.method(ProfileMiniForm, ProfileForm, path='profile/{websafeSessionKey}', http_method='POST', name='addSessionToWishlist')
+    @endpoints.method(WISHLIST_POST_REQUEST, BooleanMessage, path='session/{websafeSessionKey}/wishlist', http_method='POST', name='addSessionToWishlist')
     def addSessionToWishlist(self, request):
-        """Checks for authed user, adds the session to the user's list of sessions they are interested in attending."""
-        # make sure user is authed
-        user = endpoints.get_current_user()
-        if not user:
-            raise endpoints.UnauthorizedException('Authorization required')
-        user_id = getUserId(user)
-        return self._updateProfileObject(request)
+        """Add websafeSessionKey to users profile."""
+        return self._sessionWishlist(request)
 
-    @endpoints.method(WISHLIST_POST_REQUEST, BooleanMessage, path='session/{websafeSessionKey}/wishlist', http_method='DELETE', name='removeSessionFromWishlist')
+    @endpoints.method(WISHLIST_GET_REQUEST, BooleanMessage, path='session/{websafeSessionKey}/wishlist', http_method='DELETE', name='removeSessionFromWishlist')
     def removeSessionFromWishlist(self, request):
-        """Unregister user for selected conference."""
+        """Remove websafeSessionKey from users profile."""
         return self._sessionWishlist(request, addTo=False)
-
 
 # - - - Registration - - - - - - - - - - - - - - - - - - - -
 
@@ -739,9 +726,11 @@ class ConferenceApi(remote.Service):
     def _conferenceRegistration(self, request, reg=True):
         """Register or unregister user for selected conference."""
         retval = None
-        prof = self._getProfileFromUser() # get user Profile
 
-        # Check if conf exists given websafeConferenceKey
+        # Fetch user profile
+        prof = self._getProfileFromUser() 
+
+        # Fetch conference from websafeConferenceKey and check if exists 
         wsck = request.websafeConferenceKey
         conf = ndb.Key(urlsafe=wsck).get()
         if not conf:
@@ -816,9 +805,7 @@ class ConferenceApi(remote.Service):
         return announcement
 
 
-    @endpoints.method(message_types.VoidMessage, StringMessage,
-            path='conference/announcement/get',
-            http_method='GET', name='getAnnouncement')
+    @endpoints.method(message_types.VoidMessage, StringMessage, path='conference/announcement/get', http_method='GET', name='getAnnouncement')
     def getAnnouncement(self, request):
         """Return Announcement from memcache."""
         announcement = memcache.get(MEMCACHE_ANNOUNCEMENTS_KEY)

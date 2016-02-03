@@ -84,3 +84,38 @@ ahpkZXZ-Y29uZmVyZW5jZWNlbnRyYWwtMTE4NHIfCxIKQ29uZmVyZW5jZRjpBwwLEgdTZXNzaW9uGNoP
     def addSessionToWishlist(self, request):
         """Register user for selected conference."""
         return self._sessionWishlist(request)
+
+
+# uses form, based on the update profile method
+    def _updateProfileObject(self, request):
+
+        # Copy ProfileForm/ProtoRPC Message into dict
+        data = {field.name: getattr(request, field.name) for field in request.all_fields()}
+
+        # Get existing profile
+        prof = self._getProfileFromUser()
+
+        # Not getting all the fields, so don't create a new object; just
+        # copy relevant fields from WishlistForm to Profile object
+        for field in request.all_fields():
+            data = getattr(request, field.name)
+            # only copy fields where we get data
+            if data not in (None, []):
+                # write to Profile object
+                setattr(prof, field.name, data)
+        prof.put()
+        return self._copyProfileToForm(prof)
+
+
+    #Takes input from ProfileForm and passes it as request to _updateProfileObject
+    @endpoints.method(ProfileForm, ProfileForm, path='profile/{websafeSessionKey}', http_method='POST', name='addSessionToWishlist')
+    def addSessionToWishlist(self, request):
+        """Checks for authed user, adds the session to the user's list of sessions they are interested in attending."""
+
+        # make sure user is authed
+        user = endpoints.get_current_user()
+        if not user:
+            raise endpoints.UnauthorizedException('Authorization required')
+
+        # Send request to _updateProfileObject
+        return self._updateProfileObject(request)

@@ -110,7 +110,6 @@ class ProfileMiniForm(messages.Message):
     """ProfileMiniForm -- update Profile form message"""
     displayName = messages.StringField(1)
     teeShirtSize = messages.EnumField('TeeShirtSize', 2)
-    wishlistSessionKeys = messages.StringField(3)
 
 
 class ProfileForm(messages.Message):
@@ -118,6 +117,8 @@ class ProfileForm(messages.Message):
     displayName = messages.StringField(1)
     teeShirtSize = messages.EnumField('TeeShirtSize', 2)
     mainEmail = messages.StringField(3)
+    wishlistSessionKeys = messages.StringField(4, repeated=True)
+    conferenceKeysToAttend = messages.StringField(5, repeated=True)
 
 
 class ConferenceForm(messages.Message):
@@ -163,19 +164,4 @@ class SessionForms(messages.Message):
 
 class WishlistForm(messages.Message):
     """SessionForm -- Conference outbound form message"""
-    name                = messages.StringField(1)
-    highlights          = messages.StringField(2)
-    speaker             = messages.StringField(3)
-    startTime           = messages.StringField(4) #TimeField() in 24 hour notation so it can be ordered
-    duration            = messages.StringField(5)
-    typeOfSession       = messages.StringField(6, repeated=True)
-    date                = messages.StringField(7)
-    location            = messages.StringField(8)
-    websafeSessionKey   = messages.StringField(9)
-    organizerDispName   = messages.StringField(10)
-    websafeKey          = messages.StringField(11)
-
-
-class WishlistForms(messages.Message):
-    """SessionsForms -- multiple Session outbound form message"""
-    items = messages.MessageField(SessionForm, 1, repeated=True)
+    wishlistSessionKeys = messages.StringField(1, required=True)
