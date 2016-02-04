@@ -57,7 +57,7 @@ class Session(ndb.Model):
     organizerUserId     = ndb.StringProperty()
 
 
-# needed for conference registration
+# Needed for conference registration
 class BooleanMessage(messages.Message):
     """BooleanMessage-- outbound Boolean value message"""
     data = messages.BooleanField(1)
@@ -82,20 +82,20 @@ class TeeShirtSize(messages.Enum):
     XXXL_W = 15
 
 
-# needed for conference registration
+# Needed for conference registration
 class ConflictException(endpoints.ServiceException):
     """ConflictException -- exception mapped to HTTP 409 response"""
     http_status = httplib.CONFLICT
 
 
-#Called by the getAnnouncement endpoint
+# Called by the getAnnouncement endpoint
 class StringMessage(messages.Message):
     """StringMessage-- outbound (single) string message"""
     data = messages.StringField(1, required=True)
 
 
 class QueryForm(messages.Message):
-    """QueryForm -- Conference query inbound form message"""
+    """QueryForm -- Query inbound form message"""
     field = messages.StringField(1)
     operator = messages.StringField(2)
     value = messages.StringField(3)
@@ -154,7 +154,6 @@ class SessionForm(messages.Message):
     location            = messages.StringField(8)
     websafeConferenceKey= messages.StringField(9)
     organizerDispName   = messages.StringField(10)
-    websafeKey          = messages.StringField(11)
 
 
 class SessionForms(messages.Message):
