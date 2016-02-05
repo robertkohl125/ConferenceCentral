@@ -50,7 +50,7 @@ class Session(ndb.Model):
     speaker             = ndb.StringProperty()
     startTime           = ndb.TimeProperty() 
     duration            = ndb.StringProperty()
-    typeOfSession       = ndb.StringProperty(repeated=True)
+    typeOfSession       = ndb.StringProperty()
     date                = ndb.DateProperty()
     location            = ndb.StringProperty()
     organizerDispName   = ndb.StringProperty()
@@ -149,11 +149,30 @@ class SessionForm(messages.Message):
     speaker             = messages.StringField(3)
     startTime           = messages.StringField(4) #TimeField() in 24 hour notation so it can be ordered
     duration            = messages.StringField(5)
-    typeOfSession       = messages.StringField(6, repeated=True)
-    date                = messages.StringField(7)
+    typeOfSession       = messages.StringField(6)
+    date                = messages.StringField(7) #DateTimeField()
     location            = messages.StringField(8)
     websafeConferenceKey= messages.StringField(9)
     organizerDispName   = messages.StringField(10)
+
+
+class QSessionForm(messages.Message):
+    """SessionForm -- Conference outbound form message"""
+    name                = messages.StringField(1)
+    highlights          = messages.StringField(2)
+    speaker             = messages.StringField(3)
+    startTime           = messages.StringField(4) #TimeField() in 24 hour notation so it can be ordered
+    duration            = messages.StringField(5)
+    typeOfSession       = messages.StringField(6)
+    date                = messages.StringField(7) #DateTimeField()
+    location            = messages.StringField(8)
+    websafeConferenceKey= messages.StringField(9)
+    organizerDispName   = messages.StringField(10)
+
+
+class QSessionForms(messages.Message):
+    """SessionsForms -- multiple Session outbound form message"""
+    items = messages.MessageField(QSessionForm, 1, repeated=True)
 
 
 class SessionForms(messages.Message):

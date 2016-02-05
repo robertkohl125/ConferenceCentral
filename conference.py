@@ -34,6 +34,8 @@ from models import StringMessage
 from models import Session
 from models import SessionForm
 from models import SessionForms
+from models import QSessionForm
+from models import QSessionForms
 from models import WishlistForm
 
 from utils import getUserId
@@ -71,7 +73,7 @@ SESS_GET_REQUEST_LOC = endpoints.ResourceContainer(
 
 SESS_GET_REQUEST_DTL = endpoints.ResourceContainer(
     message_types.VoidMessage,
-    location=messages.StringField(1, required=True),
+    location=messages.StringField(1),
     date=messages.StringField(2),
     startTime=messages.StringField(3)
     )
@@ -493,29 +495,29 @@ class ConferenceApi(remote.Service):
             formatted_filters.append(filtr)
         return (inequality_field, formatted_filters)
 
-    @endpoints.method(QueryForms, SessionForms, path='querySessions', http_method='POST', name='querySessions')
+    @endpoints.method(QueryForms, QSessionForms, path='querySessions', http_method='POST', name='querySessions')
     def querySessions(self, request):
         """Query for sessions."""
         sessions = self._getSessionQuery(request)
 
          # return individual SessionsForm object per session
-        return SessionForms(
+        return QSessionForms(
             items=[self._copySessionToFormQuery(sess, "") for sess in sessions])
 
     def _copySessionToFormQuery(self, sess, displayName):
-        """Copy relevant fields from Session to SessionForm."""
-        sf = SessionForm()
+        """Copy relevant fields from Session to QSessionForm."""
+        sf = QSessionForm()
         for field in sf.all_fields():
             if hasattr(sess, field.name):
                 # convert Date to date string, Time to time string; just copy others
-                if field.name.endswith('date'):
+#                if field.name == 'date':
+#                    setattr(sf, field.name, str(getattr(sess, field.name)))
+#                if field.name == 'startTime':
+#                    setattr(sf, field.name, str(getattr(sess, field.name)))
+#                else:
                     setattr(sf, field.name, str(getattr(sess, field.name)))
-                if field.name.endswith('startTime'):
-                    setattr(sf, field.name, str(getattr(sess, field.name)))
-                else:
-                    setattr(sf, field.name, getattr(sess, field.name))
-#            elif field.name == "websafeKey":
-#                setattr(sf, field.name, sess.key.urlsafe())
+            elif field.name == "websafeKey":
+                setattr(sf, field.name, sess.key.urlsafe())
         if displayName:
             setattr(sf, 'organizerDisplayName', displayName)        
         sf.check_initialized()
@@ -527,6 +529,7 @@ class ConferenceApi(remote.Service):
         sf = SessionForm()
         for field in sf.all_fields():
             if hasattr(sess, field.name):
+
                 # convert Date and Time to date string; just copy others
                 if field.name.endswith('date'):
                     setattr(sf, field.name, str(getattr(sess, field.name)))
@@ -700,14 +703,25 @@ class ConferenceApi(remote.Service):
         location = data['location']
         date = data['date']
         startTime = data['startTime']
-#        filters = ndb.query.FilterNode(field, operator, value)
+        if data['date']:
+            udate = data['date']
+            date = datetime.strptime(udate, '%Y-%m-%d')
 
         # Perform the query for all key matches for location
         s = Session.query()
         s = s.filter(Session.location == location)
+
+        # Add date and start time filter if included in query        
+        if data['date']:
+            s = s.filter(Session.date == date)
+        if data['startTime']:
+            s = s.filter(Session.startTime == startTime)
+
+        # Order by date then start time
         s = s.order(Session.date)
         s = s.order(Session.startTime)
-        s = s.filter(Session.date == date)
+
+
 
         # Return set of SessionForm objects
         return SessionForms(items=[self._copySessionToForm(sessions) for sessions in s])
