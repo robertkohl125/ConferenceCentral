@@ -9,6 +9,10 @@ App Engine application for the Udacity training course.
 #### APIs
 - [Google Cloud Endpoints][3]
 
+#### Links
+- [App Engine Console][7]
+- [API Explorer][8]
+
 #### Setup Instructions
 1. Update the value of `application` in `app.yaml` to the app ID you
    have registered in the App Engine admin console and would like to use to host
@@ -31,3 +35,5 @@ App Engine application for the Udacity training course.
 [4]: https://console.developers.google.com/
 [5]: https://localhost:8080/
 [6]: https://developers.google.com/appengine/docs/python/endpoints/endpoints_tool
+[7]: https://console.developers.google.com/project
+[8]: https://apis-explorer.appspot.com/apis-explorer/?base=https://conferencecentral-1184.appspot.com/_ah/api#p/
