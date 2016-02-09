@@ -88,7 +88,7 @@ SESS_POST_REQUEST = endpoints.ResourceContainer(
     websafeConferenceKey=messages.StringField(1, required=True)
     )
 
-WISHLIST_GET_REQUEST = endpoints.ResourceContainer(
+WISHLIST_DEL_REQUEST = endpoints.ResourceContainer(
     message_types.VoidMessage,
     websafeSessionKey=messages.StringField(1),
     )
@@ -96,6 +96,11 @@ WISHLIST_GET_REQUEST = endpoints.ResourceContainer(
 WISHLIST_POST_REQUEST = endpoints.ResourceContainer(
     WishlistForm,
     websafeSessionKey=messages.StringField(1)
+    )
+
+WISHLIST_GET_REQUEST = endpoints.ResourceContainer(
+    message_types.VoidMessage,
+#    user=messages.StringField(1, required=True),
     )
 
 DEFAULTS = {
@@ -707,6 +712,11 @@ class ConferenceApi(remote.Service):
             udate = data['date']
             date = datetime.strptime(udate, '%Y-%m-%d')
 
+# If using this code, get error "TypeError: descriptor 'strftime' requires a 'datetime.date' object but received a 'unicode'"
+#        if data['startTime']:
+#            ustartTime = data['startTime']
+#            startTime = datetime.strftime(ustartTime, '%H:%M:%S')
+
         # Perform the query for all key matches for location
         s = Session.query()
         s = s.filter(Session.location == location)
@@ -714,8 +724,8 @@ class ConferenceApi(remote.Service):
         # Add date and start time filter if included in query        
         if data['date']:
             s = s.filter(Session.date == date)
-        if data['startTime']:
-            s = s.filter(Session.startTime == startTime)
+#        if data['startTime']:
+#           s = s.filter(Session.startTime == startTime)
 
         # Order by date then start time
         s = s.order(Session.date)
@@ -768,10 +778,26 @@ class ConferenceApi(remote.Service):
         """Add websafeSessionKey to users profile."""
         return self._sessionWishlist(request)
 
-    @endpoints.method(WISHLIST_GET_REQUEST, BooleanMessage, path='session/{websafeSessionKey}/wishlist', http_method='DELETE', name='removeSessionFromWishlist')
-    def removeSessionFromWishlist(self, request):
+    @endpoints.method(WISHLIST_DEL_REQUEST, BooleanMessage, path='session/{websafeSessionKey}/wishlist', http_method='DELETE', name='deleteSessionInWishlist')
+    def deleteSessionInWishlist(self, request):
         """Remove websafeSessionKey from users profile."""
         return self._sessionWishlist(request, addTo=False)
+
+
+    # Given a speaker, return all sessions given by this particular speaker, across all conferences
+    @endpoints.method(WISHLIST_GET_REQUEST, SessionForms, path='profile/wishlist', http_method='GET', name='getSessionsInWishlist')
+    def getSessionsInWishlist(self, request):
+
+        # Fetch user Profile
+        prof = self._getProfileFromUser() 
+
+        # Get wishlistSessionKeys from Profile all at once
+        sk = [ndb.Key(urlsafe=wssk) for wssk in prof.wishlistSessionKeys]
+        wishList = ndb.get_multi(sk)
+
+        # return set of SessionForm objects per Session found in wishList
+        return SessionForms(items=[self._copySessionToForm(w) for w in wishList]
+        )
 
 # - - - Registration - - - - - - - - - - - - - - - - - - - -
 
