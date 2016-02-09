@@ -83,6 +83,7 @@ SESS_GET_REQUEST_SPKR = endpoints.ResourceContainer(
     speaker=messages.StringField(1, required=True)
     )
 
+
 SESS_POST_REQUEST = endpoints.ResourceContainer(
     SessionForm,
     websafeConferenceKey=messages.StringField(1, required=True)
@@ -712,11 +713,6 @@ class ConferenceApi(remote.Service):
             udate = data['date']
             date = datetime.strptime(udate, '%Y-%m-%d')
 
-# If using this code, get error "TypeError: descriptor 'strftime' requires a 'datetime.date' object but received a 'unicode'"
-#        if data['startTime']:
-#            ustartTime = data['startTime']
-#            startTime = datetime.strftime(ustartTime, '%H:%M:%S')
-
         # Perform the query for all key matches for location
         s = Session.query()
         s = s.filter(Session.location == location)
@@ -724,17 +720,32 @@ class ConferenceApi(remote.Service):
         # Add date and start time filter if included in query        
         if data['date']:
             s = s.filter(Session.date == date)
-#        if data['startTime']:
-#           s = s.filter(Session.startTime == startTime)
 
         # Order by date then start time
         s = s.order(Session.date)
         s = s.order(Session.startTime)
 
-
-
         # Return set of SessionForm objects
         return SessionForms(items=[self._copySessionToForm(sessions) for sessions in s])
+
+    # Given a conference, return all sessions of a specified type (eg lecture, keynote, workshop)
+    @endpoints.method(message_types.VoidMessage, SessionForms, path='specialrequest', http_method='GET', name='getAllNonWorkshopsBefore7PM')
+    def getAllNonWorkshopsBefore7PM(self, request): 
+        """Returns all non-workshop sessions before 7 pm, across all conferences.."""
+
+        # Fetch conference data by copying SessionForm/ProtoRPC Message into dict
+#        data = {field.name: getattr(request, field.name) for field in request.all_fields()}
+#        startTime = data['startTime']
+#        typeOfSession = data['typeOfSession']
+
+        # Perform the query for all key matches for typeOfSession
+        s = Session.query()
+        s = s.filter(Session.typeOfSession == ('Keynote' or 'Lecture'))
+#        s = s.filter(Session.startTime <= '19:00')
+        s = s.order(Session.startTime)
+
+        # Return set of SessionForm objects per typeOfSession
+        return SessionForms(items=[self._copySessionToForm(sess) for sess in s])
 
 # - - - Wishlist - - - - - - - - - - - - - - - - - - - -
 
