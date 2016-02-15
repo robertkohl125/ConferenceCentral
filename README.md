@@ -37,3 +37,28 @@ App Engine application for the Udacity training course.
 [6]: https://developers.google.com/appengine/docs/python/endpoints/endpoints_tool
 [7]: https://console.developers.google.com/project
 [8]: https://apis-explorer.appspot.com/apis-explorer/?base=https://conferencecentral-1184.appspot.com/_ah/api#p/
+
+
+#### Task 1: Design Choices
+
+The following methods were added to conference.py to perform Session methods including create and query functionality. The first two I designed as private methods because they should only be able to be called by the endpoints. The endpoints are callable from HTML.
+##### Private methods:
+1. _copySessionToForm(self, session)
+1. _createSessionObject(self, request)
+
+##### Endpoints:
+2. createSession(self, request)
+2. getConferenceSessions(self, request)
+2. getConferenceSessionsByType(self, request)
+2. getSessionsBySpeaker(self, request)
+
+I currently have the _createSessionObject limited to logged in users rather than the createSession endpoint.
+
+One interesting choice I made was to define an independent ResourceContainer for each Session HTML GET request. I did this for simplicity to 
+##### Session HTML GET request ResourceContainers:
+1. SESS_GET_REQUEST
+1. SESS_GET_REQUEST_TOS 
+1. SESS_GET_REQUEST_SPKR 
+
+Task #3
+For this task I chose to create two additional tasks. The first additional task I created is getSessionsByDateTimeLocation(). This function will be usefull in seeing if a room (location) has been doule booked. The second function I created is getSessionsByLocation(). This session would help the organizer assign people to certain rooms to make sure they are ready. For example, I might need to provide the maintenance crew with the results of this query so they can assign the right staff to prepare the room. Lastly, getAllNonWorkshopsBefore7PM(), filters out all workshops after 7 by filtering results by an equality filter using "or". Then I used the Python documentation to create a time object that I used to filter by time. This is the best way that I can think of to impliment this problem because the first Index rule is Inequality filters can be applied to only one property. 

@@ -716,8 +716,6 @@ class ConferenceApi(remote.Service):
             udate = data['date']
             date = datetime.strptime(udate, '%Y-%m-%d')
 
-#TRY THIS? ->            startTime <= datetime.strptime(request.lastHour[:2], "%H").time()
-
         # Perform the query for all key matches for location
         s = Session.query()
         s = s.filter(Session.location == location)
