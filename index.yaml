@@ -62,3 +62,9 @@ indexes:
   properties:
   - name: seatsAvailable
   - name: name
+
+# Used in the logic that creates a featured speaker
+- kind: Session
+  properties:
+  - name: speaker
+  - name: name

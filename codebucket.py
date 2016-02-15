@@ -1,14 +1,10 @@
-#Conference websafekey:
-ahpkZXZ-Y29uZmVyZW5jZWNlbnRyYWwtMTE4NHI1CxIHUHJvZmlsZSIXcm9iZXJ0a29obDEyNUBnbWFpbC5jb20MCxIKQ29uZmVyZW5jZRjpBww
-
-Bob Marley
-ahhzfmNvbmZlcmVuY2VjZW50cmFsLTExODRyNgsSB1Byb2ZpbGUiF3JvYmVydGtvaGwxMjVAZ21haWwuY29tDAsSCkNvbmZlcmVuY2UYgfEEDA
-
+#Conference websafekeys:
 ahpkZXZ-Y29uZmVyZW5jZWNlbnRyYWwtMTE4NHI0CxIHUHJvZmlsZSIXcm9iZXJ0a29obDEyNUBnbWFpbC5jb20MCxIKQ29uZmVyZW5jZRgBDA
 
-sessionkey
-ahpkZXZ-Y29uZmVyZW5jZWNlbnRyYWwtMTE4NHIfCxIKQ29uZmVyZW5jZRjpBwwLEgdTZXNzaW9uGNoPDA
-
+#Session websafekeys:
+ahpkZXZ-Y29uZmVyZW5jZWNlbnRyYWwtMTE4NHIdCxIKQ29uZmVyZW5jZRgBDAsSB1Nlc3Npb24YBAw
+ahpkZXZ-Y29uZmVyZW5jZWNlbnRyYWwtMTE4NHIdCxIKQ29uZmVyZW5jZRgBDAsSB1Nlc3Npb24YBQw
+ahpkZXZ-Y29uZmVyZW5jZWNlbnRyYWwtMTE4NHIdCxIKQ29uZmVyZW5jZRgCDAsSB1Nlc3Npb24YBgw
 
 
 #  ------------
@@ -119,3 +115,53 @@ ahpkZXZ-Y29uZmVyZW5jZWNlbnRyYWwtMTE4NHIfCxIKQ29uZmVyZW5jZRjpBwwLEgdTZXNzaW9uGNoP
 
         # Send request to _updateProfileObject
         return self._updateProfileObject(request)
+
+    @endpoints.method(SESS_GET_REQUEST, ConferenceForms,  path='session/featuredSpeaker', http_method='GET', name='getFeaturedSpeaker')
+    def getFeaturedSpeaker(self, request):
+        """Return Featured speaker announcement from memcache. 
+        The featured speaker is defined to be the speaker with the most sessions.
+        """
+
+        # Fetch websafeConferenceKey from request 
+        conf = ndb.Key(urlsafe=request.websafeConferenceKey).get()
+
+        # Check that conference exists
+        if not conf:
+            raise endpoints.NotFoundException(
+                'No conference found with key: %s' % request.websafeConferenceKey)
+
+        # Fetch conference data by copying SessionForm/ProtoRPC Message into dict
+#        data = {field.name: getattr(request, field.name) for field in request.all_fields()}
+        c = Conference.query(projection=[Conference.featuredSpeaker])
+
+        # Perform ancestor query with projection query
+        sessions = Session.query(ancestor=ndb.Key(Conference, conf.key.id()), projection=[Session.speaker])
+        print sessions
+
+        # Put results in a dictionary
+        speakers = []
+        for s in sessions:
+            speakers.append(s)
+        print speakers
+#       return SessionForms(items=[self._copySessionToForm(s) for s in sessions])
+
+#        conference = Conference.query(ndb.AND(Session.seatsAvailable <= 5, Conference.seatsAvailable > 0)).fetch(projection=[Conference.name])
+        return ConferenceForms(items=[self._copyConferenceToForm(conf, '') for conf in c])
+
+        #StringMessage(data=memcache.get(MEMCACHE_FEATURED_SPEAKER_KEY) or "")
+
+        
+    def _addFeaturedSpeaker(self, request):
+        """Add speaker as featuredSpeaker to Conference."""
+
+        getFeaturedSpeaker()
+        data = {field.name: getattr(request, field.name) for field in request.all_fields()}
+        speaker = data['speaker']
+        conf = ndb.Key(urlsafe=wsck).get()
+
+        conf.featuredSpeaker.append(speaker)
+        conf.put()
+
+        announcement = ('This conferences featured speaker is %s!', speaker)
+        memcache.set(MEMCACHE_FEATURED_SPEAKER_KEY, announcement)
+        return announcement

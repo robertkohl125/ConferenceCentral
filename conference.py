@@ -9,6 +9,7 @@ __author__ = 'wesc+api@google.com (Wesley Chun)'
 
 
 from datetime import datetime
+import datetime as dt
 
 import endpoints
 from protorpc import messages
@@ -45,6 +46,7 @@ from settings import WEB_CLIENT_ID
 EMAIL_SCOPE = endpoints.EMAIL_SCOPE
 API_EXPLORER_CLIENT_ID = endpoints.API_EXPLORER_CLIENT_ID
 MEMCACHE_ANNOUNCEMENTS_KEY = "RECENT ANNOUNCEMENTS"
+MEMCACHE_SPEAKER_KEY = "FEATURED_SPEAKER"
 
 CONF_GET_REQUEST = endpoints.ResourceContainer(
     message_types.VoidMessage,
@@ -335,9 +337,7 @@ class ConferenceApi(remote.Service):
         Conference(**data).put()
 
         # Send email to organizer confirming creation of Conference
-        taskqueue.add(params={'email': user.email(),
-            'conferenceInfo': repr(request)},
-            url='/tasks/send_confirmation_email')
+        taskqueue.add(params={'email': user.email(), 'conferenceInfo': repr(request)}, url='/tasks/send_confirmation_email')
 
         # Return (modified) ConferenceForm
         return request
@@ -606,10 +606,13 @@ class ConferenceApi(remote.Service):
         # Create Session
         Session(**data).put()
 
+        speaker =data['speaker']
+
         # Send email to organizer confirming creation of Session
-        taskqueue.add(params={'email': user.email(),
-            'sessionInfo': repr(request)},
-            url='/tasks/send_confirmation_email2')
+        taskqueue.add(params={'email': user.email(), 'sessionInfo': repr(request)}, url='/tasks/send_confirmation_email2')
+
+        # Add speaker to memcache
+        taskqueue.add(params={"speaker": speaker}, url="/tasks/set_featured_speaker")
 
         # Return (modified) SessionForm
         return request
@@ -713,6 +716,8 @@ class ConferenceApi(remote.Service):
             udate = data['date']
             date = datetime.strptime(udate, '%Y-%m-%d')
 
+#TRY THIS? ->            startTime <= datetime.strptime(request.lastHour[:2], "%H").time()
+
         # Perform the query for all key matches for location
         s = Session.query()
         s = s.filter(Session.location == location)
@@ -733,15 +738,13 @@ class ConferenceApi(remote.Service):
     def getAllNonWorkshopsBefore7PM(self, request): 
         """Returns all non-workshop sessions before 7 pm, across all conferences.."""
 
-        # Fetch conference data by copying SessionForm/ProtoRPC Message into dict
-#        data = {field.name: getattr(request, field.name) for field in request.all_fields()}
-#        startTime = data['startTime']
-#        typeOfSession = data['typeOfSession']
+        # Define the time as a time object from the Datetime module (As dt)
+        t = dt.time(19,0,0)
 
         # Perform the query for all key matches for typeOfSession
         s = Session.query()
         s = s.filter(Session.typeOfSession == ('Keynote' or 'Lecture'))
-#        s = s.filter(Session.startTime <= '19:00')
+        s = s.filter(Session.startTime < t)
         s = s.order(Session.startTime)
 
         # Return set of SessionForm objects per typeOfSession
@@ -894,7 +897,6 @@ class ConferenceApi(remote.Service):
             memcache.delete(MEMCACHE_ANNOUNCEMENTS_KEY)
         return announcement
 
-
     @endpoints.method(message_types.VoidMessage, StringMessage, path='conference/announcement/get', http_method='GET', name='getAnnouncement')
     def getAnnouncement(self, request):
         """Return Announcement from memcache."""
@@ -902,6 +904,32 @@ class ConferenceApi(remote.Service):
         if not announcement:
             announcement = ""
         return StringMessage(data=announcement)
+
+# - - - Featured Speaker - - - - - - - - - - - - - - - - - - - -
+
+    @staticmethod
+    def _doFeaturedSpeaker(speaker):
+        """Check if the specified speaker has multiple sessions, 
+        then cache them in Memcache as the featured speaker.
+        """
+
+        # Get all sessions with this speaker listed.
+        speakerSessions = Session.query(Session.speaker == speaker)
+
+        # Use a for loop to gather only the names
+        speakerSessionNames = [sess.name for sess in speakerSessions]
+
+        # If there is more than one session for this speaker, join them all
+        # back together with the speaker name and put it in memcache
+        if len(speakerSessionNames) > 1:
+            cache_string = speaker + ': ' + ', '.join(speakerSessionNames)
+            memcache.set(MEMCACHE_SPEAKER_KEY, cache_string)
+
+    # Determines whether or not the session's speaker should be the new featured speaker when adding a new session to a conference. Uses App Engine's Task Queue.
+    @endpoints.method(message_types.VoidMessage, StringMessage, path='getFeaturedSpeaker', http_method='GET', name='getFeaturedSpeaker')
+    def getFeaturedSpeaker(self, request):
+        """Fetches featured speaker with sessions from memcache."""
+        return StringMessage(data=memcache.get(MEMCACHE_SPEAKER_KEY) or "")
 
 # - - - Method for testing filters - - - - - - - - - - - - - - - - - - - -
 
