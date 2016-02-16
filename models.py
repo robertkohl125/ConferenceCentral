@@ -49,12 +49,10 @@ class Session(ndb.Model):
     highlights          = ndb.StringProperty()
     speaker             = ndb.StringProperty()
     startTime           = ndb.TimeProperty() 
-    duration            = ndb.StringProperty()
+    durationInMinutes   = ndb.IntegerProperty()
     typeOfSession       = ndb.StringProperty()
     date                = ndb.DateProperty()
     location            = ndb.StringProperty()
-    organizerDispName   = ndb.StringProperty()
-    organizerUserId     = ndb.StringProperty()
 
 
 # Needed for conference registration
@@ -148,12 +146,12 @@ class SessionForm(messages.Message):
     highlights          = messages.StringField(2)
     speaker             = messages.StringField(3)
     startTime           = messages.StringField(4) #TimeField() in 24 hour notation so it can be ordered
-    duration            = messages.StringField(5)
+    durationInMinutes   = messages.IntegerField(5)
     typeOfSession       = messages.StringField(6)
     date                = messages.StringField(7) #DateTimeField()
     location            = messages.StringField(8)
     websafeConferenceKey= messages.StringField(9)
-    organizerDispName   = messages.StringField(10)
+    websafeKey          = messages.StringField(10)
 
 
 class QSessionForm(messages.Message):
@@ -162,12 +160,12 @@ class QSessionForm(messages.Message):
     highlights          = messages.StringField(2)
     speaker             = messages.StringField(3)
     startTime           = messages.StringField(4) #TimeField() in 24 hour notation so it can be ordered
-    duration            = messages.StringField(5)
+    durationInMinutes   = messages.IntegerField(5)
     typeOfSession       = messages.StringField(6)
     date                = messages.StringField(7) #DateTimeField()
     location            = messages.StringField(8)
     websafeConferenceKey= messages.StringField(9)
-    organizerDispName   = messages.StringField(10)
+    websafeKey          = messages.StringField(10)
 
 
 class QSessionForms(messages.Message):
