@@ -36,8 +36,6 @@ from models import StringMessage
 from models import Session
 from models import SessionForm
 from models import SessionForms
-from models import QSessionForm
-from models import QSessionForms
 from models import WishlistForm
 
 from utils import getUserId
@@ -86,12 +84,6 @@ SESS_GET_REQUEST_SPKR = endpoints.ResourceContainer(
     speaker=messages.StringField(1, required=True)
     )
 
-
-SESS_POST_REQUEST = endpoints.ResourceContainer(
-    SessionForm,
-    websafeConferenceKey=messages.StringField(1, required=True)
-    )
-
 WISHLIST_DEL_REQUEST = endpoints.ResourceContainer(
     message_types.VoidMessage,
     websafeSessionKey=messages.StringField(1),
@@ -100,11 +92,6 @@ WISHLIST_DEL_REQUEST = endpoints.ResourceContainer(
 WISHLIST_POST_REQUEST = endpoints.ResourceContainer(
     message_types.VoidMessage,
     websafeSessionKey=messages.StringField(1)
-    )
-
-WISHLIST_GET_REQUEST = endpoints.ResourceContainer(
-    message_types.VoidMessage,
-    user=messages.StringField(1, required=True),
     )
 
 DEFAULTS = {
@@ -128,6 +115,10 @@ FIELDS = {
     'TOPIC': 'topics',
     'MONTH': 'month',
     'MAX_ATTENDEES': 'maxAttendees',
+    }
+
+SFIELDS = {
+    'DURATION_IN_MUNUTES': 'durationInMinutes',
     }
 
 # Not used
@@ -265,7 +256,8 @@ class ConferenceApi(remote.Service):
         """
 
         q = Conference.query()
-        inequality_filter, filters = self._formatFilters(request.filters)
+        inequality_filter, filters = self._formatFilters(
+            request.filters)
 
         # If exists, sort on inequality filter first
         if not inequality_filter:
@@ -607,7 +599,8 @@ class ConferenceApi(remote.Service):
         """
 
         q = Session.query()
-        inequality_filter, filters = self._formatFilters(request.filters)
+        inequality_filter, filters = self._formatSessionFilters(
+            request.filters)
 
         # If exists, sort on inequality filter first
         if not inequality_filter:
@@ -617,6 +610,8 @@ class ConferenceApi(remote.Service):
             q = q.order(Session.name)
 
         for filtr in filters:
+            if filtr["field"] in ["durationInMinutes"]:
+                filtr["value"] = int(filtr["value"])
             formatted_query = ndb.query.FilterNode(
                 filtr["field"], 
                 filtr["operator"], 
@@ -636,6 +631,13 @@ class ConferenceApi(remote.Service):
             filtr = {field.name: getattr(f, field.name) \
                 for field in f.all_fields()}
 
+            try:
+                filtr["field"] = SFIELDS[filtr["field"]]
+                filtr["operator"] = OPERATORS[filtr["operator"]]
+            except KeyError:
+                raise endpoints.BadRequestException(
+                    "Filter contains invalid field or operator.")
+                
             # Every operation except "=" is an inequality
             if filtr["operator"] != "=":
                 # check if inequality operation has been used 
@@ -655,7 +657,7 @@ class ConferenceApi(remote.Service):
 
     @endpoints.method(
         QueryForms, 
-        QSessionForms, 
+        SessionForms, 
         path='querySessions', 
         http_method='POST', 
         name='querySessions'
@@ -667,26 +669,9 @@ class ConferenceApi(remote.Service):
         sessions = self._getSessionQuery(request)
 
          # return individual SessionsForm object per session
-        return QSessionForms(
-            items=[self._copySessionToFormQuery(sess, "") \
+        return SessionForms(
+            items=[self._copySessionToForm(sess) \
                 for sess in sessions])
-
-
-    def _copySessionToFormQuery(self, sess, displayName):
-        """Copy relevant fields from Session to QSessionForm.
-        """
-
-        sf = QSessionForm()
-        for field in sf.all_fields():
-            if hasattr(sess, field.name):
-                setattr(sf, field.name, 
-                    str(getattr(sess, field.name)))
-            elif field.name == "websafeKey":
-                setattr(sf, field.name, sess.key.urlsafe())
-        if displayName:
-            setattr(sf, 'organizerDisplayName', displayName)        
-        sf.check_initialized()
-        return sf
 
 
     def _copySessionToForm(self, sess):
@@ -697,16 +682,13 @@ class ConferenceApi(remote.Service):
         for field in sf.all_fields():
             if hasattr(sess, field.name):
 
-                # convert Date and Time to date string; just copy others
-                if field.name.endswith('date'):
-                    setattr(sf, field.name, 
-                        str(getattr(sess, field.name)))
-                if field.name.endswith('startTime'):
-                    setattr(sf, field.name, 
-                        str(getattr(sess, field.name)))
+                # Convert date and startTime to string; just copy others.
+                if field.name == 'date':
+                    setattr(sf, field.name, str(getattr(sess, field.name)))
+                elif field.name == 'startTime':
+                    setattr(sf, field.name, str(getattr(sess, field.name)))
                 else:
-                    setattr(sf, field.name, 
-                        str(getattr(sess, field.name)))
+                    setattr(sf, field.name, getattr(sess, field.name))
             elif field.name == "websafeKey":
                 setattr(sf, field.name, sess.key.urlsafe())
         sf.check_initialized()
@@ -772,7 +754,6 @@ class ConferenceApi(remote.Service):
         # to define parent and s_id as unique id
         s_key = ndb.Key(Session, s_id, parent=p_key)
         data['key'] = s_key
-        data['organizerUserId'] = user_id
         del data['websafeConferenceKey']
 
         # Create Session
@@ -782,13 +763,16 @@ class ConferenceApi(remote.Service):
 
         # Send email to organizer confirming creation of Session
         taskqueue.add(
-            params={'email': user.email(), 
+            params={
+            'email': user.email(), 
             'sessionInfo': repr(request)}, 
             url='/tasks/send_confirmation_email2')
 
         # Add speaker to memcache
         taskqueue.add(
-            params={"speaker": speaker}, 
+            params={
+            "speaker": speaker
+            "websafeConferenceKey": websafeConferenceKey}, 
             url="/tasks/set_featured_speaker")
 
         # Return (modified) SessionForm
@@ -835,7 +819,8 @@ class ConferenceApi(remote.Service):
             for field in request.all_fields()}
 
         # Perform ancestor query
-        s = Session.query(ancestor=ndb.Key(Conference, conf.key.id()))
+        s = Session.query(ancestor=ndb.Key(
+            urlsafe=request.websafeConferenceKey))
 
         # Return set of SessionForm objects per ancestor
         return SessionForms(items=[self._copySessionToForm(sess) \
@@ -922,12 +907,13 @@ class ConferenceApi(remote.Service):
     @endpoints.method(
         SESS_GET_REQUEST_DTL, 
         SessionForms, 
-        path='datetimelocation', 
+        path='datelocationbytime', 
         http_method='GET', 
-        name='getSessionsByDateTimeLocation'
+        name='getSessionsByDateLocationSortByTime'
         )
-    def getSessionsByDateTimeLocation(self, request): 
-        """Returns sessions by location, across all conferences.
+    def getSessionsByDateLocationSortByTime(self, request): 
+        """Returns sessions by date and location, across all conferences,
+        orders the results by time.
         """
 
         # Fetch session data by copying SessionForm/ProtoRPC Message into dict
@@ -1055,7 +1041,7 @@ class ConferenceApi(remote.Service):
 
 
     @endpoints.method(
-        WISHLIST_GET_REQUEST, 
+        message_types.VoidMessage, 
         SessionForms, 
         path='profile/wishlist', 
         http_method='GET', 
@@ -1219,7 +1205,9 @@ class ConferenceApi(remote.Service):
         """
 
         # Get all sessions with this speaker listed.
-        speakerSessions = Session.query(Session.speaker == speaker)
+        speakerSessions = Session.query(
+            Session.speaker == speaker, ancestor=ndb.Key(
+                urlsafe=request.websafeConferenceKey))
 
         # Use a for loop to gather only the names
         speakerSessionNames = [sess.name \
