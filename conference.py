@@ -743,6 +743,13 @@ class ConferenceApi(remote.Service):
             data['startTime'] = datetime.strptime(
                 data['startTime'][:5], "%H:%M").time()
 
+        # Add speaker to memcache
+        speaker =data['speaker']
+        taskqueue.add(
+            params={
+            "speaker": speaker,
+            "websafeConferenceKey": request.websafeConferenceKey}, 
+            url="/tasks/set_featured_speaker")
 
         # Make Session Key from Conference ID as p_key
         p_key = ndb.Key(urlsafe=request.websafeConferenceKey)
@@ -759,21 +766,14 @@ class ConferenceApi(remote.Service):
         # Create Session
         Session(**data).put()
 
-        speaker =data['speaker']
-
-        # Send email to organizer confirming creation of Session
+       # Send email to organizer confirming creation of Session
         taskqueue.add(
             params={
             'email': user.email(), 
             'sessionInfo': repr(request)}, 
             url='/tasks/send_confirmation_email2')
 
-        # Add speaker to memcache
-        taskqueue.add(
-            params={
-            "speaker": speaker
-            "websafeConferenceKey": websafeConferenceKey}, 
-            url="/tasks/set_featured_speaker")
+
 
         # Return (modified) SessionForm
         return request
@@ -1199,19 +1199,26 @@ class ConferenceApi(remote.Service):
 
 
     @staticmethod
-    def _doFeaturedSpeaker(speaker):
+    def _doFeaturedSpeaker(speaker,websafeConferenceKey):
         """Check if the specified speaker has multiple sessions, 
         then cache them in Memcache as the featured speaker.
         """
 
+        # Check that conference exists
+        conf = ndb.Key(urlsafe=websafeConferenceKey).get()
+        if not conf:
+            raise endpoints.NotFoundException(
+                'No conference found with key: %s' % websafeConferenceKey)
+
         # Get all sessions with this speaker listed.
-        speakerSessions = Session.query(
-            Session.speaker == speaker, ancestor=ndb.Key(
-                urlsafe=request.websafeConferenceKey))
+        s = Session.query(ancestor=ndb.Key(
+            urlsafe=request.websafeConferenceKey))
+        speakerSessions = s.filter(
+            Session.speaker == speaker)
 
         # Use a for loop to gather only the names
-        speakerSessionNames = [sess.name \
-            for sess in speakerSessions]
+        speakerSessionNames = [
+            sess.name for sess in speakerSessions]
 
         # If there is more than one session for this speaker, join them all
         # back together with the speaker name and put it in memcache
@@ -1224,14 +1231,14 @@ class ConferenceApi(remote.Service):
         message_types.VoidMessage, 
         StringMessage, 
         path='getFeaturedSpeaker', 
-        http_method='GET', 
+        http_method='POST', 
         name='getFeaturedSpeaker'
         )
     def getFeaturedSpeaker(self, request):
         """Fetches featured speaker with sessions from memcache.
         """
 
-        return StringMessage(data=memcache.get(MEMCACHE_SPEAKER_KEY) or "")
+        return StringMessage(data=memcache.get(MEMCACHE_SPEAKER_KEY) or '')
 
 
 # - - - Method for testing filters - - - - - - - - - - - - - - - - - - - - - - 
