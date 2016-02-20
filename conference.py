@@ -33,6 +33,7 @@ from models import QueryForms
 from models import BooleanMessage
 from models import ConflictException
 from models import StringMessage
+from models import TypeOfSession
 from models import Session
 from models import SessionForm
 from models import SessionForms
@@ -64,7 +65,8 @@ SESS_GET_REQUEST = endpoints.ResourceContainer(
 
 SESS_GET_REQUEST_TOS = endpoints.ResourceContainer(
     message_types.VoidMessage,
-    typeOfSession=messages.StringField(1, required=True)
+    websafeConferenceKey=messages.StringField(1, required=True),
+    typeOfSession=messages.StringField(2, required=True)
     )
 
 SESS_GET_REQUEST_LOC = endpoints.ResourceContainer(
@@ -121,7 +123,6 @@ SFIELDS = {
     'DURATION_IN_MUNUTES': 'durationInMinutes',
     }
 
-# Not used
 SESSION_TYPES = {
     'LECTURE':   'lecture',
     'KEYNOTE':   'keynote',
@@ -336,8 +337,7 @@ class ConferenceApi(remote.Service):
 
 
     def _createConferenceObject(self, request):
-        """Create or update Conference object, 
-        returning ConferenceForm/request.
+        """Create or update Conference object, returning ConferenceForm/request.
         """
 
         # Fetch current user
@@ -687,6 +687,9 @@ class ConferenceApi(remote.Service):
                     setattr(sf, field.name, str(getattr(sess, field.name)))
                 elif field.name == 'startTime':
                     setattr(sf, field.name, str(getattr(sess, field.name)))
+                elif field.name == 'typeOfSession':
+                    setattr(sf, field.name, getattr(
+                        TypeOfSession, getattr(sess, field.name)))
                 else:
                     setattr(sf, field.name, getattr(sess, field.name))
             elif field.name == "websafeKey":
@@ -838,15 +841,13 @@ class ConferenceApi(remote.Service):
         """Returns sessions by typeOfSession, across all conferences.
         """
 
-        # Fetch conference data by copying SessionForm/ProtoRPC 
-        # Message into dict
-        data = {field.name: getattr(request, field.name) \
-            for field in request.all_fields()}
-        typeOfSession = data['typeOfSession']
+        # Perform the ancestor query.
+        s = Session.query(ancestor=ndb.Key(
+            urlsafe=request.websafeConferenceKey))
 
-        # Perform the query for all key matches for typeOfSession
-        s = Session.query()
-        s = s.filter(Session.typeOfSession == typeOfSession)
+        # Perform the query for all key matches for typeOfSession.
+        s = s.filter(
+            Session.typeOfSession == request.typeOfSession)
 
         # Return set of SessionForm objects per typeOfSession
         return SessionForms(items=[self._copySessionToForm(sess) \
@@ -864,15 +865,9 @@ class ConferenceApi(remote.Service):
         """Returns sessions by speaker, across all conferences.
         """
 
-        # Fetch conference data by copying SessionForm/ProtoRPC Message 
-        # into dict
-        data = {field.name: getattr(request, field.name) \
-            for field in request.all_fields()}
-        speaker = data['speaker']
-
         # Perform the query for all key matches for speaker
         s = Session.query()
-        s = s.filter(Session.speaker == speaker)
+        s = s.filter(Session.speaker == request.speaker)
 
         # Return set of SessionForm objects per speaker
         return SessionForms(items=[self._copySessionToForm(sess) \
@@ -890,14 +885,9 @@ class ConferenceApi(remote.Service):
         """Returns sessions by location, across all conferences.
         """
 
-        # Fetch session data by copying SessionForm/ProtoRPC Message into dict
-        data = {field.name: getattr(request, field.name) \
-            for field in request.all_fields()}
-        location = data['location']
-
         # Perform the query for all key matches for location
         s = Session.query()
-        s = s.filter(Session.location == location)
+        s = s.filter(Session.location == request.location)
 
         # Return set of SessionForm objects per location
         return SessionForms(items=[self._copySessionToForm(sess) \

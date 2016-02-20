@@ -80,6 +80,11 @@ class TeeShirtSize(messages.Enum):
     XXXL_M = 14
     XXXL_W = 15
 
+class TypeOfSession(messages.Enum):
+    """SessionType -- session type enumeration value"""
+    Workshop = 1
+    Lecture = 2
+    Keynote = 3
 
 # Needed for conference registration
 class ConflictException(endpoints.ServiceException):
@@ -148,7 +153,7 @@ class SessionForm(messages.Message):
     speaker             = messages.StringField(3)
     startTime           = messages.StringField(4) #TimeField() in 24 hour notation so it can be ordered
     durationInMinutes   = messages.IntegerField(5, variant=messages.Variant.INT32)
-    typeOfSession       = messages.StringField(6)
+    typeOfSession       = messages.EnumField('TypeOfSession', 6, default='Workshop')
     date                = messages.StringField(7) #DateTimeField()
     location            = messages.StringField(8)
     websafeConferenceKey= messages.StringField(9)
