@@ -14,6 +14,14 @@ import httplib
 import endpoints
 from protorpc import messages
 from google.appengine.ext import ndb
+from google.appengine.ext.ndb import msgprop
+
+
+class TypeOfSession(messages.Enum):
+    """SessionType -- session type enumeration value"""
+    Workshop = 1
+    Lecture = 2
+    Keynote = 3
 
 
 # Define the Profile Kind
@@ -50,7 +58,7 @@ class Session(ndb.Model):
     speaker             = ndb.StringProperty()
     startTime           = ndb.TimeProperty() 
     durationInMinutes   = ndb.IntegerProperty()
-    typeOfSession       = ndb.StringProperty()
+    typeOfSession       = msgprop.EnumProperty(TypeOfSession)
     date                = ndb.DateProperty()
     location            = ndb.StringProperty()
     websafeKey          = ndb.StringProperty()
@@ -80,11 +88,6 @@ class TeeShirtSize(messages.Enum):
     XXXL_M = 14
     XXXL_W = 15
 
-class TypeOfSession(messages.Enum):
-    """SessionType -- session type enumeration value"""
-    Workshop = 1
-    Lecture = 2
-    Keynote = 3
 
 # Needed for conference registration
 class ConflictException(endpoints.ServiceException):

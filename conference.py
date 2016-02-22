@@ -63,29 +63,6 @@ SESS_GET_REQUEST = endpoints.ResourceContainer(
     websafeConferenceKey=messages.StringField(1, required=True)
     )
 
-SESS_GET_REQUEST_TOS = endpoints.ResourceContainer(
-    message_types.VoidMessage,
-    websafeConferenceKey=messages.StringField(1, required=True),
-    typeOfSession=messages.StringField(2, required=True)
-    )
-
-SESS_GET_REQUEST_LOC = endpoints.ResourceContainer(
-    message_types.VoidMessage,
-    location=messages.StringField(1, required=True)
-    )
-
-SESS_GET_REQUEST_DTL = endpoints.ResourceContainer(
-    message_types.VoidMessage,
-    location=messages.StringField(1),
-    date=messages.StringField(2),
-    startTime=messages.StringField(3)
-    )
-
-SESS_GET_REQUEST_SPKR = endpoints.ResourceContainer(
-    message_types.VoidMessage,
-    speaker=messages.StringField(1, required=True)
-    )
-
 WISHLIST_DEL_REQUEST = endpoints.ResourceContainer(
     message_types.VoidMessage,
     websafeSessionKey=messages.StringField(1),
@@ -121,12 +98,6 @@ FIELDS = {
 
 SFIELDS = {
     'DURATION_IN_MUNUTES': 'durationInMinutes',
-    }
-
-SESSION_TYPES = {
-    'LECTURE':   'lecture',
-    'KEYNOTE':   'keynote',
-    'WORKSHOP': 'workshop',
     }
 
 
@@ -400,7 +371,8 @@ class ConferenceApi(remote.Service):
 
         # Send email to organizer confirming creation of Conference
         taskqueue.add(
-            params={'email': user.email(), 'conferenceInfo': repr(request)}, 
+            params={'email': user.email(), 
+            'conferenceInfo': repr(request)}, 
             url='/tasks/send_confirmation_email')
 
         # Return (modified) ConferenceForm
@@ -682,14 +654,15 @@ class ConferenceApi(remote.Service):
         for field in sf.all_fields():
             if hasattr(sess, field.name):
 
-                # Convert date and startTime to string; just copy others.
+                # Convert date to string
                 if field.name == 'date':
                     setattr(sf, field.name, str(getattr(sess, field.name)))
+
+                # Convert startTime to string
                 elif field.name == 'startTime':
                     setattr(sf, field.name, str(getattr(sess, field.name)))
-                elif field.name == 'typeOfSession':
-                    setattr(sf, field.name, getattr(
-                        TypeOfSession, getattr(sess, field.name)))
+
+                # Copy other fields
                 else:
                     setattr(sf, field.name, getattr(sess, field.name))
             elif field.name == "websafeKey":
@@ -748,11 +721,13 @@ class ConferenceApi(remote.Service):
 
         # Add speaker to memcache
         speaker =data['speaker']
+        websafeConferenceKey =data['websafeConferenceKey']
         taskqueue.add(
             params={
             "speaker": speaker,
-            "websafeConferenceKey": request.websafeConferenceKey}, 
+            "websafeConferenceKey": websafeConferenceKey}, 
             url="/tasks/set_featured_speaker")
+
 
         # Make Session Key from Conference ID as p_key
         p_key = ndb.Key(urlsafe=request.websafeConferenceKey)
@@ -769,14 +744,12 @@ class ConferenceApi(remote.Service):
         # Create Session
         Session(**data).put()
 
-       # Send email to organizer confirming creation of Session
+        # Send email to organizer confirming creation of Session
         taskqueue.add(
             params={
             'email': user.email(), 
             'sessionInfo': repr(request)}, 
             url='/tasks/send_confirmation_email2')
-
-
 
         # Return (modified) SessionForm
         return request
@@ -831,7 +804,7 @@ class ConferenceApi(remote.Service):
 
 
     @endpoints.method(
-        SESS_GET_REQUEST_TOS, 
+        SessionForm, 
         SessionForms, 
         path='typeOfSession', 
         http_method='GET', 
@@ -855,7 +828,7 @@ class ConferenceApi(remote.Service):
 
 
     @endpoints.method(
-        SESS_GET_REQUEST_SPKR, 
+        SessionForm, 
         SessionForms, 
         path='speaker', 
         http_method='GET', 
@@ -875,7 +848,7 @@ class ConferenceApi(remote.Service):
 
 
     @endpoints.method(
-        SESS_GET_REQUEST_LOC, 
+        SessionForm, 
         SessionForms, 
         path='location', 
         http_method='GET', 
@@ -895,7 +868,7 @@ class ConferenceApi(remote.Service):
 
 
     @endpoints.method(
-        SESS_GET_REQUEST_DTL, 
+        SessionForm, 
         SessionForms, 
         path='datelocationbytime', 
         http_method='GET', 
@@ -951,7 +924,11 @@ class ConferenceApi(remote.Service):
 
         # Perform the query for all key matches for typeOfSession
         s = Session.query()
-        s = s.filter(Session.typeOfSession == ('Keynote' or 'Lecture'))
+
+        # Filter by typeOfSession by calling the TypeOfSession class 
+        # and appying an equality filter
+        s = s.filter(Session.typeOfSession == (
+            TypeOfSession.Keynote or TypeOfSession.Lecture))
         s = s.filter(Session.startTime < t)
         s = s.order(Session.startTime)
 
@@ -1188,35 +1165,6 @@ class ConferenceApi(remote.Service):
 # - - - Featured Speaker - - - - - - - - - - - - - - - - - - - - - - - - - - - 
 
 
-    @staticmethod
-    def _doFeaturedSpeaker(speaker,websafeConferenceKey):
-        """Check if the specified speaker has multiple sessions, 
-        then cache them in Memcache as the featured speaker.
-        """
-
-        # Check that conference exists
-        conf = ndb.Key(urlsafe=websafeConferenceKey).get()
-        if not conf:
-            raise endpoints.NotFoundException(
-                'No conference found with key: %s' % websafeConferenceKey)
-
-        # Get all sessions with this speaker listed.
-        s = Session.query(ancestor=ndb.Key(
-            urlsafe=request.websafeConferenceKey))
-        speakerSessions = s.filter(
-            Session.speaker == speaker)
-
-        # Use a for loop to gather only the names
-        speakerSessionNames = [
-            sess.name for sess in speakerSessions]
-
-        # If there is more than one session for this speaker, join them all
-        # back together with the speaker name and put it in memcache
-        if len(speakerSessionNames) > 1:
-            cache_string = speaker + ': ' + ', '.join(speakerSessionNames)
-            memcache.set(MEMCACHE_SPEAKER_KEY, cache_string)
-
-
     @endpoints.method(
         message_types.VoidMessage, 
         StringMessage, 
@@ -1227,7 +1175,6 @@ class ConferenceApi(remote.Service):
     def getFeaturedSpeaker(self, request):
         """Fetches featured speaker with sessions from memcache.
         """
-
         return StringMessage(data=memcache.get(MEMCACHE_SPEAKER_KEY) or '')
 
 

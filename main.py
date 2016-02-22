@@ -2,6 +2,12 @@ import webapp2
 from google.appengine.api import app_identity
 from google.appengine.api import mail
 from conference import ConferenceApi
+from models import Session
+from google.appengine.api import memcache
+from google.appengine.api import taskqueue
+from google.appengine.ext import ndb
+
+MEMCACHE_SPEAKER_KEY = "FEATURED_SPEAKER"
 
 
 class SetAnnouncementHandler(webapp2.RequestHandler):
@@ -42,9 +48,33 @@ class SendConfirmationEmailHandler2(webapp2.RequestHandler):
 
 class SetFeaturedSpeakerHandler(webapp2.RequestHandler):
     def post(self):
-        """Set Featured Speaker in Conferences.
+        """Check if the specified speaker has multiple sessions, 
+        then cache them in Memcache as the featured speaker.
         """
-        ConferenceApi._doFeaturedSpeaker()
+        websafeConferenceKey = self.request.get('websafeConferenceKey')
+        speaker = self.request.get('speaker')
+        # Check that conference exists
+#        conf = ndb.Key(urlsafe=websafeConferenceKey).get()
+#        if not conf:
+#            raise endpoints.NotFoundException(
+#                'No conference found with key: %s' % websafeConferenceKey)
+
+        # Get all sessions with this speaker listed.
+        s = Session.query(ancestor=ndb.Key(
+            urlsafe=websafeConferenceKey))
+        speakerSessions = s.filter(
+            Session.speaker == speaker)
+
+        # Use a for loop to gather only the names
+        speakerSessionNames = [
+            sess.name for sess in speakerSessions]
+
+        # If there is more than one session for this speaker, join them all
+        # back together with the speaker name and put it in memcache
+        if len(speakerSessionNames) > 1:
+            cache_string = speaker + ': ' + ', '.join(speakerSessionNames)
+            memcache.set(MEMCACHE_SPEAKER_KEY, cache_string)
+
 
 app = webapp2.WSGIApplication([
 	('/crons/set_announcement', SetAnnouncementHandler),
