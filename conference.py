@@ -654,12 +654,8 @@ class ConferenceApi(remote.Service):
         for field in sf.all_fields():
             if hasattr(sess, field.name):
 
-                # Convert date to string
-                if field.name == 'date':
-                    setattr(sf, field.name, str(getattr(sess, field.name)))
-
-                # Convert startTime to string
-                elif field.name == 'startTime':
+                # Convert date and startTime to string
+                if field.name == ('date', 'startTime'):
                     setattr(sf, field.name, str(getattr(sess, field.name)))
 
                 # Copy other fields
@@ -751,7 +747,7 @@ class ConferenceApi(remote.Service):
             'sessionInfo': repr(request)}, 
             url='/tasks/send_confirmation_email2')
 
-        # Return (modified) SessionForm
+        # Return request
         return request
 
 
@@ -788,11 +784,6 @@ class ConferenceApi(remote.Service):
             raise endpoints.NotFoundException(
                 'No conference found with key: \
                     %s' % request.websafeConferenceKey)
-
-        # Fetch conference data by copying 
-        # SessionForm/ProtoRPC Message into dict
-        data = {field.name: getattr(request, field.name) \
-            for field in request.all_fields()}
 
         # Perform ancestor query
         s = Session.query(ancestor=ndb.Key(
@@ -927,8 +918,9 @@ class ConferenceApi(remote.Service):
 
         # Filter by typeOfSession by calling the TypeOfSession class 
         # and appying an equality filter
-        s = s.filter(Session.typeOfSession == (
-            TypeOfSession.Keynote or TypeOfSession.Lecture))
+        s = s.filter(ndb.OR(
+            Session.typeOfSession == TypeOfSession.Keynote,
+            Session.typeOfSession == TypeOfSession.Lecture))
         s = s.filter(Session.startTime < t)
         s = s.order(Session.startTime)
 

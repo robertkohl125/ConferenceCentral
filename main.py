@@ -53,11 +53,6 @@ class SetFeaturedSpeakerHandler(webapp2.RequestHandler):
         """
         websafeConferenceKey = self.request.get('websafeConferenceKey')
         speaker = self.request.get('speaker')
-        # Check that conference exists
-#        conf = ndb.Key(urlsafe=websafeConferenceKey).get()
-#        if not conf:
-#            raise endpoints.NotFoundException(
-#                'No conference found with key: %s' % websafeConferenceKey)
 
         # Get all sessions with this speaker listed.
         s = Session.query(ancestor=ndb.Key(

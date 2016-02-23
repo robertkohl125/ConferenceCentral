@@ -61,7 +61,6 @@ class Session(ndb.Model):
     typeOfSession       = msgprop.EnumProperty(TypeOfSession)
     date                = ndb.DateProperty()
     location            = ndb.StringProperty()
-    websafeKey          = ndb.StringProperty()
 
 
 # Needed for conference registration
